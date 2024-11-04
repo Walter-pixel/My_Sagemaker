@@ -1,4 +1,4 @@
-python mnist.py \
+python mnist_onegpu_desktop.py \
 --data_folder "../data" \
 --epochs 10 \
 --batch-size 250 \

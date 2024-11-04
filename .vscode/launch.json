@@ -8,7 +8,7 @@
             "name": "simple mnist training job",
             "type": "python",
             "request": "launch",
-            "program": "Project/mnist.py",
+            "program": "/home/sagemaker-user/Project/mnist_onegpu_desktop.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
@@ -21,7 +21,7 @@
             ]
         },
         {
-            "name": "old script",
+            "name": "old script do not use this",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
