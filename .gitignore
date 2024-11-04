@@ -1,0 +1,4 @@
+.bashrc
+.cache/
+.conda/
+.sagemaker-last-active-timestamp
