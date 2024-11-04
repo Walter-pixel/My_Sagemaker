@@ -12,6 +12,15 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 
+
+import os
+import json
+import sagemaker
+from sagemaker.pytorch import PyTorch
+from sagemaker import get_execution_role
+import boto3
+
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -69,10 +78,50 @@ def convert_to_tensor(data_dir, images_file, labels_file):
     return images, labels
 
 
+def download_from_s3(data_dir, train=True):
+    """Download MNIST dataset and convert it to numpy array
+
+    Args:
+        data_dir (str): directory to save the data
+        train (bool): download training set
+
+    Returns:
+        None
+    """
+
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+
+    if train:
+        images_file = "train-images-idx3-ubyte.gz"
+        labels_file = "train-labels-idx1-ubyte.gz"
+    else:
+        images_file = "t10k-images-idx3-ubyte.gz"
+        labels_file = "t10k-labels-idx1-ubyte.gz"
+
+    # download objects
+    s3 = boto3.client("s3")
+    bucket = f"sagemaker-sample-files"
+    for obj in [images_file, labels_file]:
+        key = os.path.join("datasets/image/MNIST", obj)
+        dest = os.path.join(data_dir, obj)
+        if not os.path.exists(dest):
+            s3.download_file(bucket, key, dest)
+    return
+
+
+
 class MNIST(Dataset):
     def __init__(self, data_dir, train=True):
 
-        if train:
+        # if train:
+        #     images_file = "train-images-idx3-ubyte.gz"
+        #     labels_file = "train-labels-idx1-ubyte.gz"
+        # else:
+        #     images_file = "t10k-images-idx3-ubyte.gz"
+        #     labels_file = "t10k-labels-idx1-ubyte.gz"
+
+        if train == "True":
             images_file = "train-images-idx3-ubyte.gz"
             labels_file = "train-labels-idx1-ubyte.gz"
         else:
@@ -95,12 +144,15 @@ def train(args):
     torch.manual_seed(args.seed)
     if use_cuda:
         torch.cuda.manual_seed(args.seed)
+    
+    # we download the MNIST data from a public S3 bucket and upload it to your default bucket.
+    download_from_s3("./data", True)
 
     train_loader = DataLoader(
-        MNIST(args.train, train=True), batch_size=args.batch_size, shuffle=True
+        MNIST(args.train_data_dir, train=True), batch_size=args.batch_size, shuffle=True
     )
     test_loader = DataLoader(
-        MNIST(args.test, train=False), batch_size=args.test_batch_size, shuffle=False
+        MNIST(args.test_data_dir, train=False), batch_size=args.test_batch_size, shuffle=False
     )
 
     net = Net().to(device)
@@ -226,16 +278,29 @@ def parse_args():
     )
 
     # Container environment
-    parser.add_argument("--hosts", type=list, default=json.loads(os.environ["SM_HOSTS"]))
-    parser.add_argument("--current-host", type=str, default=os.environ["SM_CURRENT_HOST"])
-    parser.add_argument("--model-dir", type=str, default=os.environ["SM_MODEL_DIR"])
-    parser.add_argument("--train", type=str, default=os.environ["SM_CHANNEL_TRAINING"])
-    parser.add_argument("--test", type=str, default=os.environ["SM_CHANNEL_TESTING"])
-    parser.add_argument("--num-gpus", type=int, default=os.environ["SM_NUM_GPUS"])
+    # parser.add_argument("--hosts", type=list, default=json.loads(os.environ["SM_HOSTS"]))
+    # parser.add_argument("--current-host", type=str, default=os.environ["SM_CURRENT_HOST"])
+    # parser.add_argument("--model-dir", type=str, default=os.environ["SM_MODEL_DIR"])
+    # parser.add_argument("--train", type=str, default=os.environ["SM_CHANNEL_TRAINING"])
+    # parser.add_argument("--test", type=str, default=os.environ["SM_CHANNEL_TESTING"])
+    # parser.add_argument("--num-gpus", type=int, default=os.environ["SM_NUM_GPUS"])
+    
+    parser.add_argument("--train_data_dir", type=str, default="./data")
+    parser.add_argument("--test_data_dir", type=str, default="./data")
+    parser.add_argument("--num-gpus", type=int, default=1)
+
+
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
+
+
+    sess = sagemaker.Session()
+    role = get_execution_role()
+
+
+    output_path = "s3://" + sess.default_bucket() + "/DEMO-mnist"
     args = parse_args()
     train(args)

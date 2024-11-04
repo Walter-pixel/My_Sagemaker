@@ -1,0 +1,34 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "simple mnist training job",
+            "type": "python",
+            "request": "launch",
+            "program": "Project/mnist.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                 "--data_folder",
+                 "../data"
+            ]
+        },
+        {
+            "name": "old script",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "/home/sagemaker-user/Project/mnist_train.py", // Specify the full path to your file
+            "args": [
+                "--train_data_dir",
+                "./data", // whatever type is specified in argparser in the main .py script, you need to add ""
+                "--test_data_dir",
+                "./data",
+            ]
+        }
+    ]
+}

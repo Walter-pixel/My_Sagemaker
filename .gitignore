@@ -2,3 +2,4 @@
 .cache/
 .conda/
 .sagemaker-last-active-timestamp
+data/
