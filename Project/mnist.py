@@ -6,6 +6,15 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
+# from torch.utils.tensorboard import SummaryWriter
+
+# Below is to log experiemnts using Sagemaker built-in methods 
+# # https://docs.aws.amazon.com/sagemaker/latest/dg/train-remote-decorator-experiments.html
+from sagemaker.experiments.run import Run
+from sagemaker.remote_function import remote
+
+
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -33,7 +42,7 @@ class Net(nn.Module):
         return output
 
 
-def train(args, model, device, train_loader, optimizer, epoch):
+def train_one_epoch(args, model, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -48,6 +57,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
                 100. * batch_idx / len(train_loader), loss.item()))
             if args.dry_run:
                 break
+        return loss
 
 
 def test(model, device, test_loader):
@@ -67,6 +77,8 @@ def test(model, device, test_loader):
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
+    test_acc = 100. * correct / len(test_loader.dataset)
+    return test_acc, test_loss
 
 
 def main():
@@ -90,18 +102,25 @@ def main():
                         help='quickly check a single pass')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+    parser.add_argument('--log-interval', type=int, default=2, metavar='N',
                         help='how many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
     parser.add_argument('--data_folder', type=str, default='../data')
+    # parser.add_argument('--tensorboard', type=str, default='../log')
+    parser.add_argument('--exp_name', type=str, default='desktop_mnist')
+    parser.add_argument('--run_name', type=str, default='run_1')
 
 
+
+    
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
 
     torch.manual_seed(args.seed)
+    # writer = SummaryWriter(args.tensorboard)
+    
 
     if use_cuda:
         device = torch.device("cuda")
@@ -134,14 +153,26 @@ def main():
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch)
-        test(model, device, test_loader)
-        scheduler.step()
+
+    # Log experiments on SageMaker
+    #Creates the experiment
+    with Run(
+        experiment_name=args.exp_name,
+        run_name=args.run_name,
+    ) as run:
+        for epoch in range(1, args.epochs + 1):
+            train_loss = train_one_epoch(args, model, device, train_loader, optimizer, epoch)
+            test_acc, test_loss = test(model, device, test_loader)
+            scheduler.step()
+
+            run.log_metric("train_loss", train_loss)
+            run.log_metric("test_acc", test_acc)
 
     if args.save_model:
         torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
 if __name__ == '__main__':
+    
+
     main()

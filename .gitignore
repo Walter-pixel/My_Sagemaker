@@ -3,3 +3,4 @@
 .conda/
 .sagemaker-last-active-timestamp
 data/
+log/

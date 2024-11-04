@@ -13,7 +13,11 @@
             "justMyCode": true,
             "args": [
                  "--data_folder",
-                 "../data"
+                 "../data",
+                 "--tensorboard",
+                 "../log",
+                 "--epochs",
+                 "15",
             ]
         },
         {
